@@ -1,0 +1,211 @@
+---
+title: "Untitled"
+author: "Joaquin Arango"
+date: "12/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction/Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+
+## Datasets
+
+The training data for this project are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+The data for this project come from this source: <http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har>. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Preparing Data
+
+Set the environment and download the training data and the test data.
+
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(RGtk2)
+library(rattle)
+library(randomForest)
+library(gbm)
+
+training_data <- read.csv('C:/Users/Administrator/Desktop/Practical-Machine-Learning-Week-4-Project/pml-training.csv')
+testing_data <-  read.csv('C:/Users/Administrator/Desktop/Practical-Machine-Learning-Week-4-Project/pml-testing.csv')
+
+dim(training_data)
+dim(testing_data)
+```
+
+## Cleaning Data
+
+Remove variables that are not numeric values.
+
+```{r}
+non_values <- nearZeroVar(training_data)
+
+
+train_data <- training_data[,-non_values]
+test_data <- testing_data[,-non_values]
+
+dim(train_data)
+dim(test_data)
+```
+Remove data that contains more than 95% of NA values.
+
+
+```{r}
+na_col <- sapply(train_data, function(x) mean(is.na(x))) > 0.95
+
+training <- train_data[,na_col == FALSE]
+testing <- test_data[,na_col == FALSE]
+
+dim(training)
+dim(testing)
+```
+The first 7 variables turn out to be non-numeric.
+
+```{r}
+train <- training[,8:59]
+test <- testing[,8:59]
+
+dim(train)
+dim(test)
+```
+
+## Data Partitoning
+
+We should partition the train_data and test_data sets.
+
+```{r}
+inTrain <- createDataPartition(train$classe, p=0.7, list=FALSE)
+tr <- train[inTrain, ]
+te <- train[-inTrain, ]
+
+
+dim(tr)
+dim(te)
+```
+Now we can make models.
+
+## Decision Tree Model
+
+```{r}
+DTmodel <- train(classe ~ ., method='rpart', data=tr) 
+```
+
+Prediction of Decision Tree Model
+
+```{r}
+DTprediction <- predict(DTmodel, te)
+confusionMatrix(table(te$classe, DTprediction))
+
+```
+
+```{r}
+rpart.plot(DTmodel$finalModel, roundint = FALSE)
+
+```
+
+Prediction accuracy is 49%, surely we can do better.
+
+## Random Forest Model
+
+```{r}
+RFmodel <- train(classe ~ ., data = tr, method="rf", ntree= 100)
+```
+
+Prediction of Random Forest Model
+
+```{r}
+RFprediction <- predict(RFmodel, te)
+RFconMat <- confusionMatrix(table(RFprediction, te$classe))
+RFconMat
+
+```
+
+Prediction accuracy is 99%, nice!
+
+```{r}
+plot(RFconMat$table, col = RFconMat$byClass,
+     main=paste("Random Forest - Accuracy =",
+                round(RFconMat$overall['Accuracy'], 4)))
+
+```
+
+## Gradient Boosting Model
+
+Random Forest was really good, lets see if the Gradient Boosting Model does even better.
+
+```{r}
+GBMmodel <- train(classe ~ ., data = tr, method="gbm", verbose = FALSE)
+GBMmodel$finalModel
+                  
+```
+
+Prediction of Gradient Boosting Model
+
+```{r}
+GBMprediction <- predict(GBMmodel, te)
+GBMconMat <- confusionMatrix(table(GBMprediction, te$classe))
+GBMconMat
+```
+```{r}
+plot(GBMconMat$table, col = GBMconMat$byClass,
+     main = paste("Gradient Boosting - Accuracy =",
+                  round(GBMconMat$overall['Accuracy'], 4)))
+```
+
+
+Gradient Boost Model has 96% accuracy. Let's see now each model has predicted the validation dataset. Lets just consider RF and GBM since they clearly did better.
+
+
+```{r}
+RFconMat$overall
+```
+```{r}
+GBMconMat$overall
+```
+
+## Results/Conclusion
+
+Random Forest Model has more accuracy then Gradient Boosting Model, we'll use the RF model just to get one last prediction from the testing data.
+
+```{r}
+LastRFpred <- predict(RFmodel, test)
+LastRFpred
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
